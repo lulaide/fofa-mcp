@@ -70,17 +70,22 @@ func NewFOFAClient() *FOFAClient {
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 
+	email := os.Getenv("FOFA_EMAIL")
+	if email == "" {
+		email = "fofa@fofa.info"
+	}
+
 	return &FOFAClient{
 		BaseURL:    baseURL,
 		APIKey:     os.Getenv("FOFA_API_KEY"),
-		Email:      os.Getenv("FOFA_EMAIL"),
+		Email:      email,
 		HTTPClient: &http.Client{},
 	}
 }
 
 func (c *FOFAClient) Search(ctx context.Context, query string, fields string, page, size int, full bool) (*FOFASearchResponse, error) {
-	if c.APIKey == "" || c.Email == "" {
-		return nil, fmt.Errorf("FOFA_API_KEY 和 FOFA_EMAIL 环境变量未设置")
+	if c.APIKey == "" {
+		return nil, fmt.Errorf("FOFA_API_KEY 环境变量未设置")
 	}
 
 	qbase64 := base64.StdEncoding.EncodeToString([]byte(query))
@@ -127,8 +132,8 @@ func (c *FOFAClient) Search(ctx context.Context, query string, fields string, pa
 }
 
 func (c *FOFAClient) UserInfo(ctx context.Context) (*FOFAUserResponse, error) {
-	if c.APIKey == "" || c.Email == "" {
-		return nil, fmt.Errorf("FOFA_API_KEY 和 FOFA_EMAIL 环境变量未设置")
+	if c.APIKey == "" {
+		return nil, fmt.Errorf("FOFA_API_KEY 环境变量未设置")
 	}
 
 	params := url.Values{}
@@ -166,8 +171,8 @@ func (c *FOFAClient) UserInfo(ctx context.Context) (*FOFAUserResponse, error) {
 }
 
 func (c *FOFAClient) Stats(ctx context.Context, query string, fields string) (*FOFAStatsResponse, error) {
-	if c.APIKey == "" || c.Email == "" {
-		return nil, fmt.Errorf("FOFA_API_KEY 和 FOFA_EMAIL 环境变量未设置")
+	if c.APIKey == "" {
+		return nil, fmt.Errorf("FOFA_API_KEY 环境变量未设置")
 	}
 
 	qbase64 := base64.StdEncoding.EncodeToString([]byte(query))
@@ -211,8 +216,8 @@ func (c *FOFAClient) Stats(ctx context.Context, query string, fields string) (*F
 }
 
 func (c *FOFAClient) HostDetail(ctx context.Context, host string, detail bool) (json.RawMessage, error) {
-	if c.APIKey == "" || c.Email == "" {
-		return nil, fmt.Errorf("FOFA_API_KEY 和 FOFA_EMAIL 环境变量未设置")
+	if c.APIKey == "" {
+		return nil, fmt.Errorf("FOFA_API_KEY 环境变量未设置")
 	}
 
 	params := url.Values{}
