@@ -21,6 +21,24 @@ go install github.com/lulaide/fofa-mcp@latest
 
 前往 [Releases](https://github.com/lulaide/fofa-mcp/releases) 页面下载对应平台的预编译二进制文件。
 
+### Claude Code 一键安装
+
+```bash
+claude mcp add fofa-mcp -- go run github.com/lulaide/fofa-mcp@latest
+```
+
+或指定环境变量：
+
+```bash
+claude mcp add fofa-mcp -e FOFA_API_KEY=your-api-key -e FOFA_BASE_URL=https://fofa.info -- go run github.com/lulaide/fofa-mcp@latest
+```
+
+如果已通过 `go install` 安装：
+
+```bash
+claude mcp add fofa-mcp -e FOFA_API_KEY=your-api-key -- fofa-mcp
+```
+
 ### 从源码编译
 
 ```bash
@@ -35,7 +53,7 @@ go build -o fofa-mcp .
 
 | 变量 | 必填 | 说明 |
 |------|------|------|
-| `FOFA_EMAIL` | 是 | FOFA 账户邮箱 |
+| `FOFA_EMAIL` | 否 | FOFA 账户邮箱（部分中转 API 不需要，可留空） |
 | `FOFA_API_KEY` | 是 | FOFA API Key（在 [个人中心](https://fofa.info/userInfo) 获取） |
 | `FOFA_BASE_URL` | 否 | 自定义 FOFA API 地址，默认 `https://fofa.info` |
 
