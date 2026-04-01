@@ -256,8 +256,13 @@ func (c *FOFAClient) HostDetail(ctx context.Context, host string, detail bool) (
 	return body, nil
 }
 
+func isOfficialFOFA(baseURL string) bool {
+	return baseURL == defaultBaseURL || baseURL == "https://fofa.info" || baseURL == "https://fofapro.com"
+}
+
 func main() {
 	client := NewFOFAClient()
+	official := isOfficialFOFA(client.BaseURL)
 
 	server := mcp.NewServer(
 		&mcp.Implementation{
@@ -354,125 +359,128 @@ func main() {
 		},
 	)
 
-	// Tool: fofa_user_info
-	server.AddTool(
-		&mcp.Tool{
-			Name:        "fofa_user_info",
-			Description: "查询当前 FOFA 账户信息，包括邮箱、F币余额、VIP等级等。",
-			InputSchema: json.RawMessage(`{"type": "object", "properties": {}}`),
-		},
-		func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			result, err := client.UserInfo(ctx)
-			if err != nil {
+	// 以下工具仅在使用官方 FOFA API 时注册（中转 API 通常不支持）
+	if official {
+		// Tool: fofa_user_info
+		server.AddTool(
+			&mcp.Tool{
+				Name:        "fofa_user_info",
+				Description: "查询当前 FOFA 账户信息，包括邮箱、F币余额、VIP等级等。",
+				InputSchema: json.RawMessage(`{"type": "object", "properties": {}}`),
+			},
+			func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+				result, err := client.UserInfo(ctx)
+				if err != nil {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("查询失败: %v", err)}},
+						IsError: true,
+					}, nil
+				}
+
+				text := fmt.Sprintf("邮箱: %s\nF币: %d\nVIP等级: %d\n是否VIP: %v",
+					result.Email, result.FCoin, result.VIPLevel, result.IsVIP)
+
 				return &mcp.CallToolResult{
-					Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("查询失败: %v", err)}},
-					IsError: true,
+					Content: []mcp.Content{&mcp.TextContent{Text: text}},
 				}, nil
-			}
+			},
+		)
 
-			text := fmt.Sprintf("邮箱: %s\nF币: %d\nVIP等级: %d\n是否VIP: %v",
-				result.Email, result.FCoin, result.VIPLevel, result.IsVIP)
-
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: text}},
-			}, nil
-		},
-	)
-
-	// Tool: fofa_stats
-	server.AddTool(
-		&mcp.Tool{
-			Name:        "fofa_stats",
-			Description: "对 FOFA 查询结果进行统计聚合分析，获取字段分布情况。",
-			InputSchema: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"query": {
-						"type": "string",
-						"description": "FOFA 查询语句"
+		// Tool: fofa_stats
+		server.AddTool(
+			&mcp.Tool{
+				Name:        "fofa_stats",
+				Description: "对 FOFA 查询结果进行统计聚合分析，获取字段分布情况。",
+				InputSchema: json.RawMessage(`{
+					"type": "object",
+					"properties": {
+						"query": {
+							"type": "string",
+							"description": "FOFA 查询语句"
+						},
+						"fields": {
+							"type": "string",
+							"description": "统计字段，逗号分隔。可选: country,province,city,as_organization,port,protocol,title,domain,os 等"
+						}
 					},
-					"fields": {
-						"type": "string",
-						"description": "统计字段，逗号分隔。可选: country,province,city,as_organization,port,protocol,title,domain,os 等"
-					}
-				},
-				"required": ["query"]
-			}`),
-		},
-		func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			var args struct {
-				Query  string `json:"query"`
-				Fields string `json:"fields"`
-			}
-			if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
-				return nil, fmt.Errorf("参数解析失败: %w", err)
-			}
+					"required": ["query"]
+				}`),
+			},
+			func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+				var args struct {
+					Query  string `json:"query"`
+					Fields string `json:"fields"`
+				}
+				if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+					return nil, fmt.Errorf("参数解析失败: %w", err)
+				}
 
-			result, err := client.Stats(ctx, args.Query, args.Fields)
-			if err != nil {
+				result, err := client.Stats(ctx, args.Query, args.Fields)
+				if err != nil {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("查询失败: %v", err)}},
+						IsError: true,
+					}, nil
+				}
+
+				data, _ := json.MarshalIndent(result, "", "  ")
 				return &mcp.CallToolResult{
-					Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("查询失败: %v", err)}},
-					IsError: true,
+					Content: []mcp.Content{&mcp.TextContent{Text: string(data)}},
 				}, nil
-			}
+			},
+		)
 
-			data, _ := json.MarshalIndent(result, "", "  ")
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: string(data)}},
-			}, nil
-		},
-	)
-
-	// Tool: fofa_host
-	server.AddTool(
-		&mcp.Tool{
-			Name:        "fofa_host",
-			Description: "查询指定主机（IP/域名）的详细信息，包括开放端口、服务、组件等。",
-			InputSchema: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"host": {
-						"type": "string",
-						"description": "目标主机 IP 或域名"
+		// Tool: fofa_host
+		server.AddTool(
+			&mcp.Tool{
+				Name:        "fofa_host",
+				Description: "查询指定主机（IP/域名）的详细信息，包括开放端口、服务、组件等。",
+				InputSchema: json.RawMessage(`{
+					"type": "object",
+					"properties": {
+						"host": {
+							"type": "string",
+							"description": "目标主机 IP 或域名"
+						},
+						"detail": {
+							"type": "boolean",
+							"description": "是否获取详细信息，默认 false"
+						}
 					},
-					"detail": {
-						"type": "boolean",
-						"description": "是否获取详细信息，默认 false"
-					}
-				},
-				"required": ["host"]
-			}`),
-		},
-		func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			var args struct {
-				Host   string `json:"host"`
-				Detail bool   `json:"detail"`
-			}
-			if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
-				return nil, fmt.Errorf("参数解析失败: %w", err)
-			}
+					"required": ["host"]
+				}`),
+			},
+			func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+				var args struct {
+					Host   string `json:"host"`
+					Detail bool   `json:"detail"`
+				}
+				if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+					return nil, fmt.Errorf("参数解析失败: %w", err)
+				}
 
-			result, err := client.HostDetail(ctx, args.Host, args.Detail)
-			if err != nil {
+				result, err := client.HostDetail(ctx, args.Host, args.Detail)
+				if err != nil {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("查询失败: %v", err)}},
+						IsError: true,
+					}, nil
+				}
+
+				var pretty json.RawMessage
+				if err := json.Unmarshal(result, &pretty); err == nil {
+					formatted, _ := json.MarshalIndent(pretty, "", "  ")
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: string(formatted)}},
+					}, nil
+				}
+
 				return &mcp.CallToolResult{
-					Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("查询失败: %v", err)}},
-					IsError: true,
+					Content: []mcp.Content{&mcp.TextContent{Text: string(result)}},
 				}, nil
-			}
-
-			var pretty json.RawMessage
-			if err := json.Unmarshal(result, &pretty); err == nil {
-				formatted, _ := json.MarshalIndent(pretty, "", "  ")
-				return &mcp.CallToolResult{
-					Content: []mcp.Content{&mcp.TextContent{Text: string(formatted)}},
-				}, nil
-			}
-
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: string(result)}},
-			}, nil
-		},
-	)
+			},
+		)
+	}
 
 	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		log.Fatal(err)
