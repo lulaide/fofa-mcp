@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -355,6 +357,166 @@ func main() {
 
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
+			}, nil
+		},
+	)
+
+	// Tool: fofa_export
+	server.AddTool(
+		&mcp.Tool{
+			Name:        "fofa_export",
+			Description: "将 FOFA 搜索结果导出到本地文件（CSV/JSON），不会将数据加入上下文，适用于大量数据导出。需要指定输出文件的绝对路径。",
+			InputSchema: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"query": {
+						"type": "string",
+						"description": "FOFA 查询语句"
+					},
+					"output_file": {
+						"type": "string",
+						"description": "输出文件的绝对路径，支持 .csv 和 .json 格式，根据后缀自动判断格式"
+					},
+					"fields": {
+						"type": "string",
+						"description": "返回字段，逗号分隔。默认: ip,port,protocol,host,domain,title,server"
+					},
+					"page": {
+						"type": "integer",
+						"description": "页码，默认 1",
+						"minimum": 1
+					},
+					"size": {
+						"type": "integer",
+						"description": "每页数量，默认 100，最大 10000",
+						"minimum": 1,
+						"maximum": 10000
+					},
+					"full": {
+						"type": "boolean",
+						"description": "是否搜索全部数据，默认 false"
+					}
+				},
+				"required": ["query", "output_file"]
+			}`),
+		},
+		func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			var args struct {
+				Query      string `json:"query"`
+				OutputFile string `json:"output_file"`
+				Fields     string `json:"fields"`
+				Page       int    `json:"page"`
+				Size       int    `json:"size"`
+				Full       bool   `json:"full"`
+			}
+			if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+				return nil, fmt.Errorf("参数解析失败: %w", err)
+			}
+
+			if args.Fields == "" {
+				args.Fields = defaultFields
+			}
+			if args.Page <= 0 {
+				args.Page = 1
+			}
+			if args.Size <= 0 {
+				args.Size = defaultSize
+			}
+			if args.Size > maxSize {
+				args.Size = maxSize
+			}
+
+			result, err := client.Search(ctx, args.Query, args.Fields, args.Page, args.Size, args.Full)
+			if err != nil {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("查询失败: %v", err)}},
+					IsError: true,
+				}, nil
+			}
+
+			// 确保输出目录存在
+			dir := filepath.Dir(args.OutputFile)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("创建目录失败: %v", err)}},
+					IsError: true,
+				}, nil
+			}
+
+			fieldNames := strings.Split(args.Fields, ",")
+			for i := range fieldNames {
+				fieldNames[i] = strings.TrimSpace(fieldNames[i])
+			}
+
+			ext := strings.ToLower(filepath.Ext(args.OutputFile))
+
+			switch ext {
+			case ".json":
+				// JSON 格式：每行一个对象
+				f, err := os.Create(args.OutputFile)
+				if err != nil {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("创建文件失败: %v", err)}},
+						IsError: true,
+					}, nil
+				}
+				defer f.Close()
+
+				var records []map[string]string
+				for _, row := range result.Results {
+					record := make(map[string]string)
+					for j, val := range row {
+						if j < len(fieldNames) {
+							record[fieldNames[j]] = val
+						}
+					}
+					records = append(records, record)
+				}
+				enc := json.NewEncoder(f)
+				enc.SetIndent("", "  ")
+				if err := enc.Encode(records); err != nil {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("写入 JSON 失败: %v", err)}},
+						IsError: true,
+					}, nil
+				}
+
+			default:
+				// CSV 格式（默认）
+				if ext != ".csv" {
+					args.OutputFile += ".csv"
+				}
+				f, err := os.Create(args.OutputFile)
+				if err != nil {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("创建文件失败: %v", err)}},
+						IsError: true,
+					}, nil
+				}
+				defer f.Close()
+
+				// 写入 UTF-8 BOM 以兼容 Excel
+				f.Write([]byte{0xEF, 0xBB, 0xBF})
+
+				w := csv.NewWriter(f)
+				w.Write(fieldNames)
+				for _, row := range result.Results {
+					w.Write(row)
+				}
+				w.Flush()
+				if err := w.Error(); err != nil {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("写入 CSV 失败: %v", err)}},
+						IsError: true,
+					}, nil
+				}
+			}
+
+			summary := fmt.Sprintf("导出完成\n文件: %s\n查询: %s\n总量: %d\n导出: %d 条\n字段: %s",
+				args.OutputFile, result.Query, result.Size, len(result.Results), args.Fields)
+
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: summary}},
 			}, nil
 		},
 	)
