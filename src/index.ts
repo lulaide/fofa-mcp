@@ -1,25 +1,28 @@
 #!/usr/bin/env node
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { loadConfig, isOfficialAPI } from "./client.js";
-import { registerSearchTool } from "./tools/search.js";
-import { registerExportTool } from "./tools/export.js";
-import { registerOfficialTools } from "./tools/official.js";
+const command = process.argv[2];
 
-const config = loadConfig();
+if (command === "serve") {
+  const { startServer } = await import("./server/serve.js");
+  await startServer();
+} else {
+  const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
+  const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
+  const { loadConfig, isOfficialAPI } = await import("./client.js");
+  const { registerSearchTool } = await import("./tools/search.js");
+  const { registerExportTool } = await import("./tools/export.js");
+  const { registerOfficialTools } = await import("./tools/official.js");
+  const { VERSION } = await import("./server/create-mcp-server.js");
 
-const server = new McpServer({
-  name: "fofa-mcp",
-  version: "0.5.0",
-});
+  const config = loadConfig();
+  const server = new McpServer({ name: "fofa-mcp", version: VERSION });
 
-registerSearchTool(server, config);
-registerExportTool(server, config);
+  registerSearchTool(server, config);
+  registerExportTool(server, config);
+  if (isOfficialAPI(config.baseURL)) {
+    registerOfficialTools(server, config);
+  }
 
-if (isOfficialAPI(config.baseURL)) {
-  registerOfficialTools(server, config);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
 }
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
