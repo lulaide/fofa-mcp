@@ -1,6 +1,6 @@
 {
   "name": "fofa-mcp",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "FOFA 搜索引擎 MCP 工具服务器，让 AI 助手直接调用 FOFA API 进行网络资产搜索",
   "type": "module",
   "main": "dist/index.js",
