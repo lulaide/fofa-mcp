@@ -1,5 +1,4 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { loadSecrets, type ServerSecrets } from "./crypto.js";
 import {
   handleOAuthMetadata,
@@ -18,8 +17,6 @@ interface Env {
   JWS_SECRET?: string;
 }
 
-// Per-instance session store (Worker 实例内共享)
-const sessions = new Map<string, WebStandardStreamableHTTPServerTransport>();
 let cachedSecrets: ServerSecrets | null = null;
 
 function getSecrets(env: Env): ServerSecrets {
@@ -83,59 +80,35 @@ export default {
       return handleToken(body, secrets);
     }
 
-    // MCP endpoint
+    // MCP endpoint — 无状态模式：每个请求独立创建 server + transport
     if (url.pathname === "/mcp") {
+      if (request.method !== "POST") {
+        return new Response("Method Not Allowed", { status: 405, headers: corsHeaders() });
+      }
+
       // Verify token
       const authResult = await extractConfigFromToken(request, secrets);
       if (authResult instanceof Response) return authResult;
 
       const { config } = authResult;
-      const sessionId = request.headers.get("mcp-session-id");
+      const body = await request.json();
 
-      // POST — MCP JSON-RPC
-      if (request.method === "POST") {
-        const body = await request.json();
+      // 无状态：每次请求创建新的 transport + server
+      const transport = new WebStandardStreamableHTTPServerTransport({
+        sessionIdGenerator: undefined, // 无状态模式
+        enableJsonResponse: true,      // 返回 JSON 而非 SSE
+      });
 
-        // Existing session
-        if (sessionId && sessions.has(sessionId)) {
-          const transport = sessions.get(sessionId)!;
-          return transport.handleRequest(request, { parsedBody: body });
-        }
+      const server = createMcpServer(config);
+      await server.connect(transport);
 
-        // New session (must be initialize)
-        if (!sessionId && isInitializeRequest(body)) {
-          const transport = new WebStandardStreamableHTTPServerTransport({
-            sessionIdGenerator: () => crypto.randomUUID(),
-            onsessioninitialized: (sid) => {
-              sessions.set(sid, transport);
-            },
-            onsessionclosed: (sid) => {
-              sessions.delete(sid);
-            },
-          });
+      const response = await transport.handleRequest(request, { parsedBody: body });
 
-          const server = createMcpServer(config);
-          await server.connect(transport);
-          return transport.handleRequest(request, { parsedBody: body });
-        }
+      // 请求处理完关闭
+      await transport.close();
+      await server.close();
 
-        return Response.json(
-          { jsonrpc: "2.0", error: { code: -32000, message: "Bad Request" }, id: null },
-          { status: 400, headers: corsHeaders() }
-        );
-      }
-
-      // GET — SSE stream
-      if (request.method === "GET" && sessionId && sessions.has(sessionId)) {
-        return sessions.get(sessionId)!.handleRequest(request);
-      }
-
-      // DELETE — close session
-      if (request.method === "DELETE" && sessionId && sessions.has(sessionId)) {
-        return sessions.get(sessionId)!.handleRequest(request);
-      }
-
-      return new Response("Bad Request", { status: 400, headers: corsHeaders() });
+      return response;
     }
 
     // Health check
