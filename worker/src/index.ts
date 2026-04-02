@@ -13,7 +13,7 @@ import {
 import { createMcpServer } from "./mcp-server.js";
 
 interface Env {
-  SERVER_URL: string;
+  SERVER_URL?: string;
   JWE_SECRET?: string;
   JWS_SECRET?: string;
 }
@@ -41,7 +41,7 @@ function corsHeaders(): Record<string, string> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    const serverUrl = env.SERVER_URL || url.origin;
+    const serverUrl = (env.SERVER_URL || url.origin).replace(/\/+$/, "");
     const secrets = getSecrets(env);
 
     // CORS preflight
