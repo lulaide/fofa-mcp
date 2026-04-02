@@ -165,27 +165,54 @@ SERVER_URL=https://your-domain.com fofa-mcp serve
 
 `worker/` 目录包含适配 Cloudflare Worker 的独立版本，零成本无服务器部署。
 
-### 部署步骤
+### 快速部署
 
 ```bash
 cd worker
 npm install
-
-# 修改 wrangler.toml 中的 SERVER_URL 为你的 Worker 域名
-# 可选：设置固定密钥（不设置则自动生成，冷启动后旧 token 失效）
-wrangler secret put JWE_SECRET
-wrangler secret put JWS_SECRET
-
-# 部署
 wrangler deploy
 ```
 
+部署完成后会输出 Worker 地址（如 `https://fofa-mcp.<你的子域名>.workers.dev`），访问该地址确认部署成功。
+
+### 推荐配置（生产环境）
+
+建议设置固定密钥和自定义域名，避免 Worker 冷启动后旧 token 失效导致用户需要重新授权：
+
+```bash
+# 生成并设置固定密钥（推荐）
+wrangler secret put JWE_SECRET
+# 输入值，例如: openssl rand -base64 32 生成
+
+wrangler secret put JWS_SECRET
+# 输入值，同上
+```
+
+如果你有自定义域名（如 `mcp.example.com`），在 Cloudflare Dashboard 中给 Worker 绑定域名后设置：
+
+```bash
+wrangler secret put SERVER_URL
+# 输入值: https://mcp.example.com
+```
+
+### 环境变量
+
+| 变量 | 必填 | 默认值 | 说明 |
+|------|------|--------|------|
+| `SERVER_URL` | 否 | 自动从请求推断 | 自定义域名（如 `https://mcp.example.com`） |
+| `JWE_SECRET` | 否 | 自动生成 | 32 字节 base64 密钥（加密 authorization code） |
+| `JWS_SECRET` | 否 | 自动生成 | 32 字节 base64 密钥（签名 access token） |
+
+> **不设置密钥时**：每次 Worker 冷启动自动随机生成，已签发的 token 将失效，用户需重新 OAuth 授权。适合测试使用。
+>
+> **设置固定密钥后**：Worker 重启/重新部署后 token 持续有效，用户无需重复授权。**生产环境推荐**。
+
 ### 特点
 
+- **零配置部署**：`wrangler deploy` 一条命令即可运行
 - **零成本**：Cloudflare Worker 免费额度每天 10 万次请求
 - **全球边缘**：自动部署到全球节点，低延迟
 - **无需服务器**：不需要 VPS 或云主机
-- **Web Standard API**：使用 `WebStandardStreamableHTTPServerTransport`，原生兼容 Worker 运行时
 
 ## 许可证
 
