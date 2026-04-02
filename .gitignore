@@ -1,3 +1,5 @@
+node_modules/
+dist/
 *.exe
 *.exe~
 *.dll
@@ -5,7 +7,6 @@
 *.dylib
 *.test
 *.out
-dist/
 vendor/
 .idea/
 .vscode/
