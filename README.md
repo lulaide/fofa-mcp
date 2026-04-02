@@ -161,6 +161,32 @@ SERVER_URL=https://your-domain.com fofa-mcp serve
 
 在 Claude.ai 中添加 Custom Connector，填入你部署的服务器地址即可，OAuth 发现和认证流程自动完成。
 
+## Cloudflare Worker 部署（无服务器）
+
+`worker/` 目录包含适配 Cloudflare Worker 的独立版本，零成本无服务器部署。
+
+### 部署步骤
+
+```bash
+cd worker
+npm install
+
+# 修改 wrangler.toml 中的 SERVER_URL 为你的 Worker 域名
+# 可选：设置固定密钥（不设置则自动生成，冷启动后旧 token 失效）
+wrangler secret put JWE_SECRET
+wrangler secret put JWS_SECRET
+
+# 部署
+wrangler deploy
+```
+
+### 特点
+
+- **零成本**：Cloudflare Worker 免费额度每天 10 万次请求
+- **全球边缘**：自动部署到全球节点，低延迟
+- **无需服务器**：不需要 VPS 或云主机
+- **Web Standard API**：使用 `WebStandardStreamableHTTPServerTransport`，原生兼容 Worker 运行时
+
 ## 许可证
 
 MIT License

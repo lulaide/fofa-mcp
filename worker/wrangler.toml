@@ -1,0 +1,12 @@
+name = "fofa-mcp"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+SERVER_URL = "https://fofa-mcp.your-name.workers.dev"
+
+# 在 Cloudflare Dashboard 或 wrangler secret 中设置：
+# wrangler secret put JWE_SECRET
+# wrangler secret put JWS_SECRET
+# 如果不设置，每次 Worker 冷启动会自动生成（旧 token 失效）
