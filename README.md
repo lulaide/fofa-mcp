@@ -135,20 +135,19 @@ claude mcp add fofa-mcp -e FOFA_API_KEY=your-api-key -e FOFA_BASE_URL=https://yo
 ### 启动
 
 ```bash
-JWE_SECRET=$(openssl rand -base64 32) \
-JWS_SECRET=$(openssl rand -base64 32) \
-SERVER_URL=https://your-domain.com \
-fofa-mcp serve
+SERVER_URL=https://your-domain.com fofa-mcp serve
 ```
 
 ### 环境变量
 
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `SERVER_URL` | 是 | `http://localhost:3000` | 服务对外公开地址 |
-| `JWE_SECRET` | 是 | — | 32 字节 base64 编码密钥（加密 authorization code） |
-| `JWS_SECRET` | 是 | — | 32+ 字节 base64 编码密钥（签名 access token） |
+| `SERVER_URL` | 否 | `http://localhost:3000` | 服务对外公开地址 |
+| `JWE_SECRET` | 否 | 自动生成 | 32 字节 base64 编码密钥（加密 authorization code） |
+| `JWS_SECRET` | 否 | 自动生成 | 32+ 字节 base64 编码密钥（签名 access token） |
 | `LISTEN_ADDR` | 否 | `:3000` | 监听地址（如 `0.0.0.0:8080`） |
+
+> 未设置 `JWE_SECRET`/`JWS_SECRET` 时自动随机生成，重启后旧 token 失效，客户端会自动重新 OAuth。如需重启后 token 持续有效，手动设置固定密钥。
 
 ### 工作原理
 

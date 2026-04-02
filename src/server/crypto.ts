@@ -1,4 +1,5 @@
 import { EncryptJWT, jwtDecrypt, SignJWT, jwtVerify } from "jose";
+import { randomBytes } from "node:crypto";
 
 export interface ServerSecrets {
   jweKey: Uint8Array; // 32 bytes for A256GCM
@@ -28,18 +29,19 @@ export function loadSecrets(): ServerSecrets {
   const jweEnv = process.env.JWE_SECRET;
   const jwsEnv = process.env.JWS_SECRET;
 
-  if (!jweEnv || !jwsEnv) {
-    throw new Error("serve 模式需要设置 JWE_SECRET 和 JWS_SECRET 环境变量");
-  }
+  // 未设置则自动生成（重启后旧 token 失效，客户端会自动重新 OAuth）
+  const jweKey = jweEnv ? Buffer.from(jweEnv, "base64") : randomBytes(32);
+  const jwsKey = jwsEnv ? Buffer.from(jwsEnv, "base64") : randomBytes(32);
 
-  const jweKey = Buffer.from(jweEnv, "base64");
   if (jweKey.length !== 32) {
     throw new Error("JWE_SECRET 必须是 32 字节（base64 编码后约 44 字符）");
   }
-
-  const jwsKey = Buffer.from(jwsEnv, "base64");
   if (jwsKey.length < 32) {
     throw new Error("JWS_SECRET 至少需要 32 字节");
+  }
+
+  if (!jweEnv || !jwsEnv) {
+    console.log("未设置 JWE_SECRET/JWS_SECRET，已自动生成（重启后旧 token 将失效）");
   }
 
   return {
