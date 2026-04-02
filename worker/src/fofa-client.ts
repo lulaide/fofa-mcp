@@ -42,7 +42,14 @@ export async function fofaSearch(
   if (full) params.set("full", "true");
 
   const resp = await fetch(`${config.baseURL}/api/v1/search/all?${params}`);
-  const data = (await resp.json()) as FOFASearchResult;
+  const text = await resp.text();
+
+  let data: FOFASearchResult;
+  try {
+    data = JSON.parse(text) as FOFASearchResult;
+  } catch {
+    throw new Error(`FOFA API 返回异常 (HTTP ${resp.status}): ${text.substring(0, 200)}`);
+  }
 
   if (data.error) throw new Error(`FOFA API 错误: ${data.errmsg}`);
   return data;
