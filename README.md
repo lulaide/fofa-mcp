@@ -38,12 +38,6 @@ claude mcp add fofa-mcp -e FOFA_API_KEY=your-api-key -- npx fofa-mcp
 claude mcp add fofa-mcp -e FOFA_API_KEY=your-api-key -e FOFA_BASE_URL=https://your-api.com -- npx fofa-mcp
 ```
 
-### Go 版本（备选）
-
-```bash
-go install github.com/lulaide/fofa-mcp@latest
-```
-
 ## 配置
 
 ### 环境变量
@@ -54,9 +48,9 @@ go install github.com/lulaide/fofa-mcp@latest
 | `FOFA_EMAIL` | 否 | FOFA 账户邮箱（部分中转 API 不需要，可留空） |
 | `FOFA_BASE_URL` | 否 | 自定义 FOFA API 地址，默认 `https://fofa.info` |
 
-### Claude Desktop 配置
+### Claude Desktop
 
-编辑 Claude Desktop 配置文件：
+编辑配置文件：
 
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -76,7 +70,7 @@ go install github.com/lulaide/fofa-mcp@latest
 }
 ```
 
-### Cursor 配置
+### Cursor
 
 ```json
 {
@@ -92,17 +86,9 @@ go install github.com/lulaide/fofa-mcp@latest
 }
 ```
 
-## 使用示例
+## 工具参数
 
-配置完成后，你可以在 AI 助手中这样使用：
-
-- "用 FOFA 搜索所有 domain 为 example.com 的资产"
-- "将 title='登录' 的搜索结果导出到 result.csv"
-- "查看我的 FOFA 账户信息"
-- "统计 title='登录' 的资产国家分布"
-- "查询 1.1.1.1 的主机详细信息"
-
-### fofa_search 参数
+### fofa_search
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
@@ -112,25 +98,25 @@ go install github.com/lulaide/fofa-mcp@latest
 | `size` | integer | 否 | 每页数量，默认 100，最大 10000 |
 | `full` | boolean | 否 | 是否搜索全部数据，默认 false（仅最近一年） |
 
-### fofa_export 参数
+### fofa_export
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `query` | string | 是 | FOFA 查询语句 |
-| `output_file` | string | 是 | 输出文件的绝对路径，支持 `.csv` 和 `.json` |
+| `output_file` | string | 是 | 输出文件路径，支持 `.csv` 和 `.json` |
 | `fields` | string | 否 | 返回字段，默认 `ip,port,protocol,host,domain,title,server` |
 | `page` | integer | 否 | 页码，默认 1 |
 | `size` | integer | 否 | 每页数量，默认 100，最大 10000 |
 | `full` | boolean | 否 | 是否搜索全部数据，默认 false |
 
-### fofa_stats 参数（仅官方 API）
+### fofa_stats（仅官方 API）
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `query` | string | 是 | FOFA 查询语句 |
 | `fields` | string | 否 | 统计字段，如 `country,port,protocol` |
 
-### fofa_host 参数（仅官方 API）
+### fofa_host（仅官方 API）
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|

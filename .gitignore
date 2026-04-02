@@ -1,12 +1,5 @@
 node_modules/
 dist/
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-vendor/
+*.tsbuildinfo
 .idea/
 .vscode/
