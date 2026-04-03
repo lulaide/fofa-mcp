@@ -6,9 +6,9 @@ const DEFAULT_FIELDS = "ip,port,protocol,host,domain,title,server";
 const DEFAULT_SIZE = 100;
 const MAX_SIZE = 10000;
 
-function formatResults(result: { query: string; mode: string; page: number; results: string[][] }, fields: string): string {
+function formatResults(result: { query: string; mode: string; page: number; size: number; results: string[][] }, fields: string): string {
   const fieldNames = fields.split(",").map((f) => f.trim());
-  let out = `查询: ${result.query}\n模式: ${result.mode} | 页码: ${result.page} | 结果数: ${result.results.length}\n\n`;
+  let out = `查询: ${result.query}\n模式: ${result.mode} | 总数: ${result.size} | 页码: ${result.page} | 本页: ${result.results.length}\n\n`;
 
   for (let i = 0; i < result.results.length; i++) {
     const row = result.results[i];
